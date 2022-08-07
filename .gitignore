@@ -127,3 +127,11 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# Los datas
+*/data/*
+
+# Las imagenes
+*/images/*
+
+traveling_salesman/handout.pdf
