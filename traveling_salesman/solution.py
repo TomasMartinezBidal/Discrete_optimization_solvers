@@ -16,6 +16,18 @@ class Solution:
         self.nodes = nodes
         self.adjacent = {}
 
+    def plot_solution(self, coord_array, title='no_title'):
+        plt.figure(figsize=(10, 10))
+        plt.title(title)
+        plt.plot(coord_array[self.path_index, 0], coord_array[self.path_index, 1])
+        plt.scatter(coord_array[:, 0], coord_array[:, 1])
+        for x, y, text in zip([self.nodes.nodes_list[i].x_cord for i in self.path_index],
+                              [self.nodes.nodes_list[i].y_cord for i in self.path_index],
+                              self.path_index[:-1]):
+            plt.annotate(text, (x, y + 0.1))
+        plt.savefig(f'images\\{title}.png', dpi=200)
+        plt.close()
+
     def add_zero_to_path(self):
         if self.path_index == []:
             self.path_index = [0, 0]
@@ -112,6 +124,8 @@ class Solution:
                         self.path_index[i + 1] == self.adjacent[self.path_index[i]][1])
             if not condition:
                 print('error de adjacente en nodo:', self.path_index[i])
+                print(f'path index: {self.path_index}')
+                print(f'adjacent {[[i, self.adjacent[i]] for i in self.path_index]}')
                 _ = input('')
 
     def two_opt(self):
@@ -287,9 +301,11 @@ class Solution:
                     break
 
     def swap_node_to_between(self):
-        for node_index in range(1,len(self.path_index)-1):
-            node_id = self.path_index[node_index]
+        for node_id in self.path_index[1:-1]:#range(1,len(self.path_index)-1):
+            #print(f'path index: {self.path_index}')
+            #node_id = self.path_index[node_index]
             node = self.nodes.nodes_list[node_id]
+            node_index = self.path_index.index(node_id)
 
             original_left_node_id = self.adjacent[node_id][0]
             original_right_node_id = self.adjacent[node_id][1]
@@ -297,76 +313,129 @@ class Solution:
                                      node.distance_to_nodes[original_right_node_id]
             distance_new_where_node = self.nodes.nodes_list[original_left_node_id].distance_to_nodes[original_right_node_id]
 
-            neighbours_id = node.ordered_nodes_by_distance[1:self.neighbour_count + 1]
-            neighbours_left_id = [self.adjacent[neighbour_id][0] for neighbour_id in neighbours_id]
-            neighbours_right_id = [self.adjacent[neighbour_id][1] for neighbour_id in neighbours_id]
+            neighbours_list_id = node.ordered_nodes_by_distance[1:self.neighbour_count + 1]
+            neighbours_list_left_id = [self.adjacent[neighbour_id][0] for neighbour_id in neighbours_list_id]
+            neighbours_list_right_id = [self.adjacent[neighbour_id][1] for neighbour_id in neighbours_list_id]
 
             delta_length_left = []
             delta_length_right = []
             for i in range(self.neighbour_count):  # Instead of generating two comprehension list it's done in a for.
-                neighbour_id = neighbours_id[i]
-                left_neighbour_id = neighbours_left_id[i]
-                right_neighbour_id = neighbours_right_id[i]
+                neighbour_id = neighbours_list_id[i]
+                left_neighbour_id = neighbours_list_left_id[i]
+                right_neighbour_id = neighbours_list_right_id[i]
 
                 distance_original_neighbour_left = self.nodes.nodes_list[neighbour_id].distance_to_nodes[left_neighbour_id]
                 distance_original_neighbour_right = self.nodes.nodes_list[neighbour_id].distance_to_nodes[right_neighbour_id]
 
                 distance_new_neighbour_left = self.nodes.nodes_list[neighbour_id].distance_to_nodes[node_id] +\
-                                                   self.nodes.nodes_list[node_id].distance_to_nodes[left_neighbour_id]
+                                                   self.nodes.nodes_list[node_id].distance_to_nodes[left_neighbour_id]\
+                    if node_id != left_neighbour_id else float('inf')
                 distance_new_neighbour_right = self.nodes.nodes_list[neighbour_id].distance_to_nodes[node_id] +\
-                                                   self.nodes.nodes_list[node_id].distance_to_nodes[right_neighbour_id]
+                                                   self.nodes.nodes_list[node_id].distance_to_nodes[right_neighbour_id]\
+                    if node_id != right_neighbour_id else float('inf')
 
-                delta_length_left.append(distance_new_neighbour_left-distance_original_neighbour_left)
-                delta_length_right.append(distance_new_neighbour_right-distance_original_neighbour_right)
+                delta_length_left.append(distance_new_neighbour_left
+                                         - distance_original_neighbour_left
+                                         + distance_new_where_node
+                                         - distance_original_node)
+                delta_length_right.append(distance_new_neighbour_right
+                                          - distance_original_neighbour_right
+                                          + distance_new_where_node
+                                          - distance_original_node)
 
             delta_length_left = np.array(delta_length_left)
             delta_length_right = np.array(delta_length_right)
+
+            # print(np.array([neighbours_list_id, neighbours_list_left_id, neighbours_list_right_id, delta_length_left, delta_length_right]).T)
 
             left = np.min(delta_length_left) < np.min(delta_length_right)
 
             if left:
                 index_min = np.argmin(delta_length_left)
-                neighbour_id = neighbours_id[index_min]
-                neighbour_left = neighbours_left_id[index_min]
+                neighbour_id = neighbours_list_id[index_min]
+                neighbour_left_id = neighbours_list_left_id[index_min]
                 neighbour_index_path = self.path_index.index(neighbour_id)
-                delta_length = delta_length_left[index_min] + distance_new_where_node - distance_original_node
+                delta_length = delta_length_left[index_min]
                 if delta_length < 0:
+                    # print(f'path index: {self.path_index}')
+                    # print(f'adjacent {[[i, self.adjacent[i]] for i in self.path_index]}')
                     self.distance += delta_length
                     # ver que es mas chico si node_index o la nueva posicion....
                     if node_index > neighbour_index_path:
-                        del self.path_index[node_index]
-                        self.path_index.insert(node_id, neighbour_index_path)
+                        self.path_index.insert(neighbour_index_path, self.path_index.pop(node_index))
                     else:
-                        self.path_index.insert(node_id, neighbour_index_path)
-                        del self.path_index[node_index]
+                        self.path_index.insert(neighbour_index_path-1, self.path_index.pop(node_index))
+                    # if node_index > neighbour_index_path:
+                    #     del self.path_index[node_index]
+                    #     self.path_index.insert(neighbour_index_path, node_id)
+                    # else:
+                    #     self.path_index.insert(neighbour_index_path, node_id)
+                    #     del self.path_index[node_index]
                     self.adjacent[original_left_node_id][1] = original_right_node_id
                     self.adjacent[original_right_node_id][0] = original_left_node_id
 
-                    self.adjacent[node_id] = [neighbour_left, neighbour_id]
+                    self.adjacent[node_id] = [neighbour_left_id, neighbour_id]
 
-                    self.adjacent[neighbour_left][1] = node_id
+                    self.adjacent[neighbour_left_id][1] = node_id
                     self.adjacent[neighbour_id][0] = node_id
-                    print('optimized via left')
+
+                    # print(f'optimized via left {[node_id,neighbour_id,original_left_node_id,original_right_node_id,neighbour_left_id]}')
+                    # print(f'path index: {self.path_index}')
+
+                    # plt.figure(figsize=(10, 10))
+                    # plt.plot([self.nodes.nodes_list[i].x_cord for i in self.path_index], [self.nodes.nodes_list[i].y_cord for i in self.path_index])
+                    # plt.scatter([self.nodes.nodes_list[i].x_cord for i in self.path_index], [self.nodes.nodes_list[i].y_cord for i in self.path_index])
+                    # for x, y, text in zip([self.nodes.nodes_list[i].x_cord for i in self.path_index],
+                    #                       [self.nodes.nodes_list[i].y_cord for i in self.path_index],
+                    #                       self.path_index[:-1]):
+                    #     plt.annotate(text, (x, y+0.1))
+                    # plt.show()
+
+                    # self.adjacent_verification()
+
+
             else:
                 index_min = np.argmin(delta_length_right)
-                neighbour_id = neighbours_id[index_min]
-                neighbour_right = neighbours_right_id[index_min]
+                neighbour_id = neighbours_list_id[index_min]
+                neighbour_right_id = neighbours_list_right_id[index_min]
                 neighbour_index_path = self.path_index.index(neighbour_id)
-                delta_length = delta_length_right[index_min] + distance_new_where_node - distance_original_node
+                delta_length = delta_length_right[index_min]
+                # print(f'delta lenght = {delta_length}')
                 if delta_length < 0:
+                    # print(f'path index: {self.path_index}')
+                    # print(f'adjacent {[[i, self.adjacent[i]] for i in self.path_index]}')
                     self.distance += delta_length
                     # ver que es mas chico si node_index o la nueva posicion....
                     if node_index > neighbour_index_path:
-                        del self.path_index[node_index]
-                        self.path_index.insert(node_id, neighbour_index_path)
+                        self.path_index.insert(neighbour_index_path+1, self.path_index.pop(node_index))
                     else:
-                        self.path_index.insert(node_id, neighbour_index_path)
-                        del self.path_index[node_index]
+                        self.path_index.insert(neighbour_index_path, self.path_index.pop(node_index))                    # if node_index > neighbour_index_path:
+                    #     del self.path_index[node_index]
+                    #     # print(f'path index: {self.path_index}')
+                    #     self.path_index.insert(neighbour_index_path+1, node_id)
+                    # else:
+                    #     self.path_index.insert(neighbour_index_path, node_id)
+                    #     # print(f'path index: {self.path_index}')
+                    #     del self.path_index[node_index]
                     self.adjacent[original_left_node_id][1] = original_right_node_id
                     self.adjacent[original_right_node_id][0] = original_left_node_id
 
-                    self.adjacent[node_id] = [neighbour_id, neighbour_right]
+                    self.adjacent[node_id] = [neighbour_id, neighbour_right_id]
 
-                    self.adjacent[neighbour_right][0] = node_id
+                    self.adjacent[neighbour_right_id][0] = node_id
                     self.adjacent[neighbour_id][1] = node_id
-                    print(f'optimized via right {[neighbour_id,original_left_node_id,original_right_node_id,neighbour_id,neighbour_right]}')
+                    # print(f'optimized via right {[node_id,neighbour_id,original_left_node_id,original_right_node_id,neighbour_right_id]}')
+                    # print(f'path index: {self.path_index}')
+
+                    # plt.figure(figsize=(10, 10))
+                    # plt.plot([self.nodes.nodes_list[i].x_cord for i in self.path_index],
+                    #          [self.nodes.nodes_list[i].y_cord for i in self.path_index])
+                    # plt.scatter([self.nodes.nodes_list[i].x_cord for i in self.path_index],
+                    #             [self.nodes.nodes_list[i].y_cord for i in self.path_index])
+                    # for x, y, text in zip([self.nodes.nodes_list[i].x_cord for i in self.path_index],
+                    #                       [self.nodes.nodes_list[i].y_cord for i in self.path_index],
+                    #                       self.path_index[:-1]):
+                    #     plt.annotate(text, (x, y+0.1))
+                    # plt.show()
+
+                    # self.adjacent_verification()

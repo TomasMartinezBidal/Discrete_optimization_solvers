@@ -54,7 +54,7 @@ def solve_it(input_data):
     print('----------------starting solution----------------')
 
 
-    neighbour_count = math.ceil(nodeCount**0.5)
+    neighbour_count = min(math.ceil(nodeCount**0.5), 30)
     print(f'Using {neighbour_count} neighbours')
 
     first_solution = Solution(nodeCount, Nodes, neighbour_count)
@@ -78,39 +78,41 @@ def solve_it(input_data):
         # image_counter += 1
         # # plt.draw()
         # # plt.show()
-    print('\n')
-    print("Generated first solution")
+    print("\nGenerated first solution")
 
-    plt.figure(figsize=(10,10))
-    # plt.xlim((0, 70))
-    # plt.ylim((0, 70))
-    plt.plot(x_y_array[first_solution.path_index,0],x_y_array[first_solution.path_index,1])
-    plt.scatter(x_y_array[:,0],x_y_array[:,1])
-    plt.savefig('images\pre_cross.png', dpi=200)
-    plt.close()
-    #plt.show()
+    first_solution.plot_solution(x_y_array,'first_solution')
+
+    print("Generating two opt")
 
     first_solution.two_opt()
 
-    plt.figure(figsize=(10,10))
-    # plt.xlim((0, 70))
-    # plt.ylim((0, 70))
-    plt.plot(x_y_array[first_solution.path_index,0],x_y_array[first_solution.path_index,1])
-    plt.scatter(x_y_array[:,0],x_y_array[:,1])
-    plt.savefig('images\post_cross.png', dpi=200)
-    plt.close()
-    #plt.show()
+    first_solution.plot_solution(x_y_array,'two_opt')
+
+    print('two opt finished')
+
+    print('generating swaps')
 
     first_solution.swap_node_to_between()
 
-    plt.figure(figsize=(10,10))
-    # plt.xlim((0, 70))
-    # plt.ylim((0, 70))
-    plt.plot(x_y_array[first_solution.path_index,0],x_y_array[first_solution.path_index,1])
-    plt.scatter(x_y_array[:,0],x_y_array[:,1])
-    plt.savefig('images\post_swaps_between.png', dpi=200)
-    plt.close()
-    #plt.show()
+    first_solution.plot_solution(x_y_array,'first_swap')
+
+    print('swaps finished')
+
+    print('generating more swaps')
+
+    first_solution.swap_node_to_between()
+
+    first_solution.plot_solution(x_y_array,'second_swap')
+
+    print('finished more swaps')
+
+    print('final two opt')
+
+    first_solution.two_opt()
+
+    first_solution.plot_solution(x_y_array,'final_two_opt')
+
+    print('two opt finished')
 
     print('distancia optimizada: ', first_solution.distance)
 
@@ -118,11 +120,6 @@ def solve_it(input_data):
     output_data = '%.2f' % first_solution.distance + ' ' + str(0) + '\n'
     output_data += ' '.join(map(str, first_solution.path_index[:-1]))
 
-    # plt.figure(figsize=(10,10))
-    # plt.plot(x_y_array[first_solution.path_index,0],x_y_array[first_solution.path_index,1])
-    # plt.scatter(x_y_array[:,0],x_y_array[:,1])
-    # # plt.draw()
-    # plt.show()
     return output_data
 
 # if __name__ == '__main__':
