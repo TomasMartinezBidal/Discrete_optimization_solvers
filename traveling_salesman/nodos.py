@@ -23,7 +23,7 @@ def cross_product(p1, p2):
 
 
 def direction(p1, p2, p3):
-    return  cross_product(p3.subtract(p1), p2.subtract(p1))
+    return cross_product(p3.subtract(p1), p2.subtract(p1))
 
 
 def left(p1, p2, p3):

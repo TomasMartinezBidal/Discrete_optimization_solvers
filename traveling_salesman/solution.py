@@ -7,7 +7,15 @@ import matplotlib.pyplot as plt
 
 class Solution:
 
+    solution_list =[]
+    solution_distances = []
+    recent_k_opt_nodes_number = 10
+    recent_k_opt_nodes = [-1] * recent_k_opt_nodes_number
+    plot_counter = 0  # Un contador para los titulos de los graficos
+
     def __init__(self, node_count, nodes, neighbour_count):
+        self.solution_list.append(self)
+        self.node_count = node_count
         self.path_index = []
         self.neighbours = []
         self.not_visited_index = list(range(1, node_count))
@@ -16,8 +24,20 @@ class Solution:
         self.nodes = nodes
         self.adjacent = {}
 
+    def copy(self):
+        Solution(self.node_count, self.nodes, self.neighbour_count)
+        Solution.solution_list[-1].path_index = self.path_index.copy()
+        Solution.solution_list[-1].not_visited_index = []
+        Solution.solution_list[-1].distance = self.distance.copy()
+        Solution.solution_list[-1].adjacent = self.adjacent.copy()
+
+    @staticmethod
+    def calc_solution_distances():
+        Solution.solution_distances = [i.distance for i in Solution.solution_list]
+
     def plot_solution(self, coord_array, title='no_title'):
         plt.figure(figsize=(10, 10))
+        title = f'{bin(Solution.plot_counter)}-{title}'
         plt.title(title)
         plt.plot(coord_array[self.path_index, 0], coord_array[self.path_index, 1])
         plt.scatter(coord_array[:, 0], coord_array[:, 1])
@@ -27,6 +47,7 @@ class Solution:
             plt.annotate(text, (x, y + 0.1))
         plt.savefig(f'images\\{title}.png', dpi=200)
         plt.close()
+        Solution.plot_counter += 1
 
     def add_zero_to_path(self):
         if self.path_index == []:
@@ -127,6 +148,7 @@ class Solution:
                 print(f'path index: {self.path_index}')
                 print(f'adjacent {[[i, self.adjacent[i]] for i in self.path_index]}')
                 _ = input('')
+        print('pass verification')
 
     def two_opt(self):
         for node_id in self.path_index:
@@ -439,3 +461,94 @@ class Solution:
                     # plt.show()
 
                     # self.adjacent_verification()
+
+    def k_opt(self, t2_node_id, t1_node_id, k, x_y_array):
+        if k > 0:  # k is the number of ops to be checked, method is recursive.
+            self.copy()  # Apply the method and make a copy of my solution. Stored at the solution list.
+            k_solution = Solution.solution_list[-1]  # store my copied solution in a variable, it exists on the list.
+            t2_adjacent = self.adjacent[t2_node_id]  # get the adjacent nodes to t2 in a variable.
+            t2_neighbours = self.nodes.nodes_list[t2_node_id].ordered_nodes_by_distance[1:Solution.recent_k_opt_nodes_number + 4]# list of t2 neighbours, using the same amount of nodes as stored in recently visited + 2 in case of adjacent.
+            new_t2_neighbour_id = [x for x in t2_neighbours if ((x not in t2_adjacent) & (x not in Solution.recent_k_opt_nodes))][0]  # Get the first neighbour that is not adjacent nor visited.
+            # new_t2_neighbour_id = t2_neighbours[~np.in1d(t2_neighbours, np.append(t2_adjacent, Solution.recent_k_opt_nodes))][0]
+            # print(f't2_neighbours nodes: {t2_neighbours}')
+            # print(f'recent_kopt nodes: {Solution.recent_k_opt_nodes}')
+            # print(f't2_adjacent: {t2_adjacent}')
+            # print(f'nodes available: {new_t2_neighbour_id}')
+            next_t1_neighbour_id = self.adjacent[new_t2_neighbour_id][0 if (self.adjacent[t1_node_id][1] == t2_node_id) else 1]     # The new t1 neighbour was conected to t2,
+                                                                                                                                    # so if t1 is to the right of t2, then the one
+                                                                                                                                    # to the left of t2 is the new t1 neighbour.
+
+            # print(f't2_node: {t2_node_id}, t1_node: {t1_node_id}, t2_adjacent: {t2_adjacent}\nt2_neighbours: {t2_neighbours}\nnew_t2_neighbour: {new_t2_neighbour_id}, recent_k_opt_nodes: {self.recent_k_opt_nodes}, next_t1_neighbour: {next_t1_neighbour_id}')
+
+            t1_node_index = self.path_index.index(t1_node_id)
+            t2_node_index = self.path_index.index(t2_node_id)
+            new_t2_neighbour_index = self.path_index.index(new_t2_neighbour_id)
+            next_t1_neighbour_index = new_t2_neighbour_index - 1 if (self.adjacent[t1_node_id][1] == t2_node_id) else new_t2_neighbour_index + 1  # May return -1 issue!
+
+            # Tengo que rearmar el path.
+            # En vez de buscar el primero y ultimo podria buscar los dos del medio, mas facil y me evito verificar lo del 0
+            index_order_list = [t1_node_index, t2_node_index, new_t2_neighbour_index, next_t1_neighbour_index]
+            print(f'removed 0 with index: {index_order_list.index(0)}, number at that index: {index_order_list[index_order_list.index(0)]} \n {index_order_list} \n {self.path_index}') if (0 in index_order_list) else None
+            index_order_list.sort()
+            index_order_list.remove(0) if (0 in index_order_list) else None# Cheto el if en una linea
+            loop_start_inner_index = index_order_list[1]
+            loop_end_inner_index = index_order_list[2]
+            loop_start_index = loop_start_inner_index - 1
+            loop_end_index = loop_end_inner_index + 1
+            # print('loop indexs:', loop_start_index, loop_start_inner_index, loop_end_index, loop_end_index)
+
+            # if (0 in index_order_list) & (self.adjacent[0][1] in index_order_list):
+            #     loop_start_index = 0
+            #     loop_start_inner_index = 1
+            #     loop_end_index = max(index_order_list)
+            #     loop_end_inner_index = loop_end_index - 1
+            # elif (0 in index_order_list) & (self.adjacent[0][0] in index_order_list):
+            #     index_order_list.remove(0)
+            #     loop_start_index = min(index_order_list)
+            #     loop_start_inner_index = loop_start_index + 1
+            #     loop_end_index = self.node_count - 1
+            #     loop_end_inner_index = loop_end_index - 1
+            # else:
+            #     loop_start_index = min(t1_node_index, t2_node_index, new_t2_neighbour_index, next_t1_neighbour_index)
+            #     loop_start_inner_index = loop_start_index + 1
+            #     loop_end_index = max(t1_node_index, t2_node_index, new_t2_neighbour_index, next_t1_neighbour_index)
+            #     loop_end_inner_index = loop_end_index - 1
+
+            loop_start_id = self.path_index[loop_start_index]
+            loop_start_inner_id = self.path_index[loop_start_inner_index]
+            loop_end_id = self.path_index[loop_end_index] # un error aca!!
+            loop_end_inner_id = self.path_index[loop_end_inner_index]
+
+            loop_start_node = self.nodes.nodes_list[loop_start_id]
+            loop_start_inner_node = self.nodes.nodes_list[loop_start_inner_id]
+            loop_end_node = self.nodes.nodes_list[loop_end_id]
+            loop_end_inner_node = self.nodes.nodes_list[loop_end_inner_id]
+
+            k_solution.adjacent[loop_start_id] = [k_solution.adjacent[loop_start_id][0], loop_end_inner_id]
+            k_solution.adjacent[loop_end_id] = [loop_start_inner_id, k_solution.adjacent[loop_end_id][1]]
+            k_solution.adjacent[loop_start_inner_id] = [k_solution.adjacent[loop_start_inner_id][1], loop_end_id]
+            k_solution.adjacent[loop_end_inner_id] = [loop_start_id, k_solution.adjacent[loop_end_inner_id][0]]
+
+            for swapped_node in k_solution.path_index[loop_start_inner_index + 1:loop_end_inner_index]:  # da vuelta los adjacent del rulo
+                k_solution.adjacent[swapped_node] = k_solution.adjacent[swapped_node][::-1]
+
+            # print('loop start', loop_start_index)
+            k_solution.path_index = k_solution.path_index[:loop_start_inner_index] + \
+                                    k_solution.path_index[loop_end_inner_index:loop_start_index:-1] + \
+                                    k_solution.path_index[loop_end_index:]
+            k_solution.distance += -loop_start_node.distance_to_nodes[loop_start_inner_id] \
+                                   + loop_start_node.distance_to_nodes[loop_end_inner_id] \
+                                   - loop_end_node.distance_to_nodes[loop_end_inner_id] \
+                                   + loop_end_node.distance_to_nodes[loop_start_inner_id]
+            Solution.recent_k_opt_nodes.append(new_t2_neighbour_id)
+            if len(Solution.recent_k_opt_nodes) > Solution.recent_k_opt_nodes_number:
+                del Solution.recent_k_opt_nodes[0]
+            # print(Solution.recent_k_opt_nodes)
+            # print(f'path_index: {k_solution.path_index}')
+            # k_solution.plot_solution(x_y_array, title=f'k_opt, distance={round(k_solution.distance,2)}, k={k}')
+            k_solution.k_opt(next_t1_neighbour_id, t1_node_id, k-1, x_y_array)
+
+        else:
+            Solution.calc_solution_distances()
+            #print('distances: ', Solution.solution_distances)
+            Solution.solution_list = [Solution.solution_list[Solution.solution_distances.index(min(Solution.solution_distances))]]

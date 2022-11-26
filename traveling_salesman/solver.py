@@ -106,19 +106,40 @@ def solve_it(input_data):
 
     print('finished more swaps')
 
+    print('some k_opt')
+
+    first_solution.plot_solution(x_y_array, 'pre_k_opt')
+    time.sleep(2)
+
+    time_init = time.time()
+
+    for opt_counter in range(nodeCount*20):
+        print(opt_counter)
+        t2_node_id = random.randint(0, nodeCount-1)  # Elijo un nodo al azar
+        t1_node_id = first_solution.adjacent[t2_node_id][1]  # node to the right of t2, why not left??
+        first_solution.k_opt(t2_node_id, t1_node_id, k=20, x_y_array=x_y_array)  # Aplico k-opts
+        #first_solution.plot_solution(x_y_array, f'opt_{opt_counter}_{round(first_solution.distance, 2)}')
+        first_solution = Solution.solution_list[0]
+
+    time_end = time.time()
+
+    print(f'elapsed time in k opt: {(time_end-time_init)} seg')
+
+    print('finished some k_opt')
+
     print('final two opt')
 
-    first_solution.two_opt()
+    Solution.solution_list[0].two_opt()
 
-    first_solution.plot_solution(x_y_array,'final_two_opt')
+    Solution.solution_list[0].plot_solution(x_y_array,'final_two_opt')
 
     print('two opt finished')
 
-    print('distancia optimizada: ', first_solution.distance)
+    print('distancia optimizada: ', Solution.solution_list[0].distance)
 
     # prepare the solution in the specified output format
-    output_data = '%.2f' % first_solution.distance + ' ' + str(0) + '\n'
-    output_data += ' '.join(map(str, first_solution.path_index[:-1]))
+    output_data = '%.2f' % Solution.solution_list[0].distance + ' ' + str(0) + '\n'
+    output_data += ' '.join(map(str, Solution.solution_list[0].path_index[:-1]))
 
     return output_data
 
