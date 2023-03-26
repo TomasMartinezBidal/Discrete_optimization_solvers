@@ -24,6 +24,9 @@ class Solution:
         self.nodes = nodes
         self.adjacent = {}
 
+    # def __del__(self):
+    #     print('class deleted')
+
     def copy(self):
         Solution(self.node_count, self.nodes, self.neighbour_count)
         Solution.solution_list[-1].path_index = self.path_index.copy()
@@ -52,17 +55,18 @@ class Solution:
     def add_zero_to_path(self):
         if self.path_index == []:
             self.path_index = [0, 0]
-            neighbours_nodes = self.nodes.nodes_list[0].ordered_nodes_by_distance[1:self.neighbour_count + 1]
-            neighbours_distance = self.nodes.nodes_list[0].distance_to_nodes[neighbours_nodes]
-            neighbours_of = np.zeros(len(neighbours_nodes))
+            neighbours_nodes = self.nodes.nodes_list[0].ordered_nodes_by_distance[1:self.neighbour_count + 1]  # Lista con todos los nodos
+            neighbours_distance = self.nodes.nodes_list[0].distance_to_nodes[neighbours_nodes]  # lista con distancias a nodos de neighbours_nodes
+            neighbours_of = np.zeros(len(neighbours_nodes))  # de cual son vecino, en esta caso es 0.
             neighbours = np.vstack((neighbours_nodes, neighbours_distance, neighbours_of))
             self.neighbours = neighbours
             self.adjacent[0] = [0, 0]
 
-    def add_node_to_path(self):
-        node_id = int(self.neighbours[0, 0])
-        mask = self.neighbours[0] == node_id
-        solution_neighbours = self.neighbours[2, mask].astype(int)
+    def add_node_to_path(self, number_nodes_check_when_adding):
+        node_id = int(self.neighbours[0, 0])  # El nodo mas cercano de self.neighbours[0, 0]
+        mask = self.neighbours[0] == node_id  # Mascara filtrando neighbours
+        solution_neighbours = self.neighbours[2, mask].astype(int)[:number_nodes_check_when_adding]  # Neighbours al nodo que quiero ingresar
+        #solution_neighbours = solution_neighbours[:10] if len(solution_neighbours) > 10 else solution_neighbours
         distance_diff = np.inf
 
         for i in solution_neighbours:
@@ -138,6 +142,83 @@ class Solution:
         self.not_visited_index.remove(node_id)
         # print('path index:',self.path_index)
         # print(f'Not visited index: {self.not_visited_index}')
+
+    def add_node_to_path_2(self, number_nodes_check_when_adding):
+        node_id = int(self.neighbours[0, 0])  # El nodo mas cercano de self.neighbours[0, 0]
+        mask = self.neighbours[0] == node_id  # Mascara filtrando neighbours
+        solution_neighbours = self.neighbours[2, mask].astype(int)[:number_nodes_check_when_adding]  # Neighbours al nodo que quiero ingresar
+        distance_diff = np.inf
+
+        for i in solution_neighbours:
+            index = self.path_index.index(i)  # index of node i in the solution
+            distance_right = self.nodes.nodes_list[self.path_index[index]].distance(
+                self.nodes.nodes_list[self.path_index[index + 1]])
+            new_distance_right = self.nodes.nodes_list[node_id].distance(
+                self.nodes.nodes_list[self.path_index[index]]) + \
+                                 self.nodes.nodes_list[node_id].distance(
+                                     self.nodes.nodes_list[self.path_index[index + 1]])
+
+            if index != 0:
+                distance_left = self.nodes.nodes_list[self.path_index[index]].distance(
+                    self.nodes.nodes_list[self.path_index[index - 1]])
+                new_distance_left = self.nodes.nodes_list[node_id].distance(
+                    self.nodes.nodes_list[self.path_index[index]]) + \
+                                    self.nodes.nodes_list[node_id].distance(
+                                        self.nodes.nodes_list[self.path_index[index - 1]])
+            else:
+                distance_left = np.inf
+                new_distance_left = np.inf
+
+            if distance_diff > (new_distance_right - distance_right):
+                distance_diff = new_distance_right - distance_right
+                previous_distance = distance_right
+                new_distance = new_distance_right
+                left = False
+                best_solution_neighbour = i
+                best_solution_neighbour_index = index
+            if distance_diff > (new_distance_left - distance_left):
+                distance_diff = new_distance_left - distance_left
+                previous_distance = distance_left
+                new_distance = new_distance_left
+                left = True
+                best_solution_neighbour = i
+                best_solution_neighbour_index = index
+
+        if left:
+            other_neighbour = self.path_index[best_solution_neighbour_index - 1]  # For self.adjacent
+            self.adjacent[node_id] = [other_neighbour, best_solution_neighbour]
+            self.adjacent[best_solution_neighbour] = [node_id, self.adjacent[best_solution_neighbour][1]]
+            self.adjacent[other_neighbour] = [self.adjacent[other_neighbour][0], node_id]
+
+            self.path_index.insert(best_solution_neighbour_index, node_id)
+        else:
+            other_neighbour = self.path_index[best_solution_neighbour_index + 1]  # For self.adjacent
+            self.adjacent[node_id] = [best_solution_neighbour, other_neighbour]
+            self.adjacent[best_solution_neighbour] = [self.adjacent[best_solution_neighbour][0], node_id]
+            self.adjacent[other_neighbour] = [node_id, self.adjacent[other_neighbour][1]]  # [self.adjacent[node_id, other_neighbour][1]]
+
+            self.path_index.insert(best_solution_neighbour_index + 1, node_id)
+
+        self.distance += new_distance - previous_distance
+        self.neighbours = self.neighbours[:, self.neighbours[0] != node_id]
+
+        mask_2 = ~np.isin(element=self.nodes.nodes_list[node_id].ordered_nodes_by_distance,
+                          test_elements=self.path_index)  # Mask of nodes not in solution for ordered by distance list
+        # print(f'path index: {self.path_index}')
+        # print(f'new node: {node_id}')
+        # print(f'ordered nodes by distance: {self.nodes.nodes_list[node_id].ordered_nodes_by_distance}')
+        # print('mask_2: ', mask_2)
+        neighbours_nodes = self.nodes.nodes_list[node_id].ordered_nodes_by_distance[mask_2][0:self.neighbour_count]
+        # print(self.nodes.nodes_list[node_id].ordered_nodes_by_distance[mask_2])
+        # print(neighbours_nodes)
+        # _ = input('...')
+        neighbours_distance = self.nodes.nodes_list[node_id].distance_to_nodes[neighbours_nodes]
+
+        new_neighbours = np.vstack((neighbours_nodes, neighbours_distance, np.ones(len(neighbours_nodes)) * node_id))
+
+        self.neighbours = np.hstack((self.neighbours, new_neighbours))
+        self.neighbours = self.neighbours[:, np.argsort(self.neighbours[1])]
+        self.not_visited_index.remove(node_id)
 
     def adjacent_verification(self):
         for i in range(1, len(self.path_index) - 1):
@@ -401,20 +482,6 @@ class Solution:
                     self.adjacent[neighbour_left_id][1] = node_id
                     self.adjacent[neighbour_id][0] = node_id
 
-                    # print(f'optimized via left {[node_id,neighbour_id,original_left_node_id,original_right_node_id,neighbour_left_id]}')
-                    # print(f'path index: {self.path_index}')
-
-                    # plt.figure(figsize=(10, 10))
-                    # plt.plot([self.nodes.nodes_list[i].x_cord for i in self.path_index], [self.nodes.nodes_list[i].y_cord for i in self.path_index])
-                    # plt.scatter([self.nodes.nodes_list[i].x_cord for i in self.path_index], [self.nodes.nodes_list[i].y_cord for i in self.path_index])
-                    # for x, y, text in zip([self.nodes.nodes_list[i].x_cord for i in self.path_index],
-                    #                       [self.nodes.nodes_list[i].y_cord for i in self.path_index],
-                    #                       self.path_index[:-1]):
-                    #     plt.annotate(text, (x, y+0.1))
-                    # plt.show()
-
-                    # self.adjacent_verification()
-
 
             else:
                 index_min = np.argmin(delta_length_right)
@@ -432,13 +499,7 @@ class Solution:
                         self.path_index.insert(neighbour_index_path+1, self.path_index.pop(node_index))
                     else:
                         self.path_index.insert(neighbour_index_path, self.path_index.pop(node_index))                    # if node_index > neighbour_index_path:
-                    #     del self.path_index[node_index]
-                    #     # print(f'path index: {self.path_index}')
-                    #     self.path_index.insert(neighbour_index_path+1, node_id)
-                    # else:
-                    #     self.path_index.insert(neighbour_index_path, node_id)
-                    #     # print(f'path index: {self.path_index}')
-                    #     del self.path_index[node_index]
+
                     self.adjacent[original_left_node_id][1] = original_right_node_id
                     self.adjacent[original_right_node_id][0] = original_left_node_id
 
@@ -446,73 +507,58 @@ class Solution:
 
                     self.adjacent[neighbour_right_id][0] = node_id
                     self.adjacent[neighbour_id][1] = node_id
-                    # print(f'optimized via right {[node_id,neighbour_id,original_left_node_id,original_right_node_id,neighbour_right_id]}')
-                    # print(f'path index: {self.path_index}')
 
-                    # plt.figure(figsize=(10, 10))
-                    # plt.plot([self.nodes.nodes_list[i].x_cord for i in self.path_index],
-                    #          [self.nodes.nodes_list[i].y_cord for i in self.path_index])
-                    # plt.scatter([self.nodes.nodes_list[i].x_cord for i in self.path_index],
-                    #             [self.nodes.nodes_list[i].y_cord for i in self.path_index])
-                    # for x, y, text in zip([self.nodes.nodes_list[i].x_cord for i in self.path_index],
-                    #                       [self.nodes.nodes_list[i].y_cord for i in self.path_index],
-                    #                       self.path_index[:-1]):
-                    #     plt.annotate(text, (x, y+0.1))
-                    # plt.show()
-
-                    # self.adjacent_verification()
 
     def k_opt(self, t2_node_id, t1_node_id, k, x_y_array):
         if k > 0:  # k is the number of ops to be checked, method is recursive.
+
+            # print(self.path_index, len(self.path_index))
+
             self.copy()  # Apply the method and make a copy of my solution. Stored at the solution list.
             k_solution = Solution.solution_list[-1]  # store my copied solution in a variable, it exists on the list.
             t2_adjacent = self.adjacent[t2_node_id]  # get the adjacent nodes to t2 in a variable.
             t2_neighbours = self.nodes.nodes_list[t2_node_id].ordered_nodes_by_distance[1:Solution.recent_k_opt_nodes_number + 4]# list of t2 neighbours, using the same amount of nodes as stored in recently visited + 2 in case of adjacent.
             new_t2_neighbour_id = [x for x in t2_neighbours if ((x not in t2_adjacent) & (x not in Solution.recent_k_opt_nodes))][0]  # Get the first neighbour that is not adjacent nor visited.
-            # new_t2_neighbour_id = t2_neighbours[~np.in1d(t2_neighbours, np.append(t2_adjacent, Solution.recent_k_opt_nodes))][0]
-            # print(f't2_neighbours nodes: {t2_neighbours}')
-            # print(f'recent_kopt nodes: {Solution.recent_k_opt_nodes}')
-            # print(f't2_adjacent: {t2_adjacent}')
-            # print(f'nodes available: {new_t2_neighbour_id}')
-            next_t1_neighbour_id = self.adjacent[new_t2_neighbour_id][0 if (self.adjacent[t1_node_id][1] == t2_node_id) else 1]     # The new t1 neighbour was conected to t2,
-                                                                                                                                    # so if t1 is to the right of t2, then the one
-                                                                                                                                    # to the left of t2 is the new t1 neighbour.
+            next_t1_neighbour_id = self.adjacent[new_t2_neighbour_id][0 if (self.adjacent[t1_node_id][1] == t2_node_id) else 1]
 
-            # print(f't2_node: {t2_node_id}, t1_node: {t1_node_id}, t2_adjacent: {t2_adjacent}\nt2_neighbours: {t2_neighbours}\nnew_t2_neighbour: {new_t2_neighbour_id}, recent_k_opt_nodes: {self.recent_k_opt_nodes}, next_t1_neighbour: {next_t1_neighbour_id}')
+            # The new t1 neighbour was conected to t2,
+            # so if t1 is to the right of t2, then the one
+            # to the left of t2 is the new t1 neighbour.
 
             t1_node_index = self.path_index.index(t1_node_id)
             t2_node_index = self.path_index.index(t2_node_id)
             new_t2_neighbour_index = self.path_index.index(new_t2_neighbour_id)
-            next_t1_neighbour_index = new_t2_neighbour_index - 1 if (self.adjacent[t1_node_id][1] == t2_node_id) else new_t2_neighbour_index + 1  # May return -1 issue!
+
+            if self.adjacent[t1_node_id][1] == t2_node_id:  # Check if t2 was to the right of t1
+                if new_t2_neighbour_index != 0:
+                    next_t1_neighbour_index = new_t2_neighbour_index - 1
+                else:
+                    next_t1_neighbour_index =  self.node_count - 2  # self.path_index.index(self.adjacent[0][0])  # self.adjacent[0][0]
+            else:
+                next_t1_neighbour_index = new_t2_neighbour_index + 1
 
             # Tengo que rearmar el path.
             # En vez de buscar el primero y ultimo podria buscar los dos del medio, mas facil y me evito verificar lo del 0
             index_order_list = [t1_node_index, t2_node_index, new_t2_neighbour_index, next_t1_neighbour_index]
-            print(f'removed 0 with index: {index_order_list.index(0)}, number at that index: {index_order_list[index_order_list.index(0)]} \n {index_order_list} \n {self.path_index}') if (0 in index_order_list) else None
             index_order_list.sort()
-            index_order_list.remove(0) if (0 in index_order_list) else None# Cheto el if en una linea
+
+            # This is for a tricky scenario. It es for the case node 0 and the last node are among the nodes, the script
+            # needs to refer two the second appearance of node 0 but as index returns the first instance we need this if
+
+            if (0 in index_order_list) & (self.node_count - 1 in index_order_list) :
+                index_order_list.remove(0)
+                index_order_list.append(self.node_count)
+            #     flag = True
+            #     print(index_order_list)
+            #     print(f't1: {t1_node_id}, t2: {t2_node_id}, new_t1_neighbour: {new_t2_neighbour_id}, new_t2_neighbour: {next_t1_neighbour_id}')
+            # else:
+            #     flag = False
+
+            # index_order_list.remove(0) if (0 in index_order_list) else None# Cheto el if en una linea
             loop_start_inner_index = index_order_list[1]
             loop_end_inner_index = index_order_list[2]
             loop_start_index = loop_start_inner_index - 1
             loop_end_index = loop_end_inner_index + 1
-            # print('loop indexs:', loop_start_index, loop_start_inner_index, loop_end_index, loop_end_index)
-
-            # if (0 in index_order_list) & (self.adjacent[0][1] in index_order_list):
-            #     loop_start_index = 0
-            #     loop_start_inner_index = 1
-            #     loop_end_index = max(index_order_list)
-            #     loop_end_inner_index = loop_end_index - 1
-            # elif (0 in index_order_list) & (self.adjacent[0][0] in index_order_list):
-            #     index_order_list.remove(0)
-            #     loop_start_index = min(index_order_list)
-            #     loop_start_inner_index = loop_start_index + 1
-            #     loop_end_index = self.node_count - 1
-            #     loop_end_inner_index = loop_end_index - 1
-            # else:
-            #     loop_start_index = min(t1_node_index, t2_node_index, new_t2_neighbour_index, next_t1_neighbour_index)
-            #     loop_start_inner_index = loop_start_index + 1
-            #     loop_end_index = max(t1_node_index, t2_node_index, new_t2_neighbour_index, next_t1_neighbour_index)
-            #     loop_end_inner_index = loop_end_index - 1
 
             loop_start_id = self.path_index[loop_start_index]
             loop_start_inner_id = self.path_index[loop_start_inner_index]
@@ -533,14 +579,23 @@ class Solution:
                 k_solution.adjacent[swapped_node] = k_solution.adjacent[swapped_node][::-1]
 
             # print('loop start', loop_start_index)
+
+            # doy vuelta la solucion
             k_solution.path_index = k_solution.path_index[:loop_start_inner_index] + \
                                     k_solution.path_index[loop_end_inner_index:loop_start_index:-1] + \
                                     k_solution.path_index[loop_end_index:]
+
+            # re calculo la solucion
             k_solution.distance += -loop_start_node.distance_to_nodes[loop_start_inner_id] \
                                    + loop_start_node.distance_to_nodes[loop_end_inner_id] \
                                    - loop_end_node.distance_to_nodes[loop_end_inner_id] \
                                    + loop_end_node.distance_to_nodes[loop_start_inner_id]
             Solution.recent_k_opt_nodes.append(new_t2_neighbour_id)
+
+            # if flag:
+            #     print(self.path_index)
+            #     print(k_solution.path_index)
+
             if len(Solution.recent_k_opt_nodes) > Solution.recent_k_opt_nodes_number:
                 del Solution.recent_k_opt_nodes[0]
             # print(Solution.recent_k_opt_nodes)

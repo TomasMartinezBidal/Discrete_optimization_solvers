@@ -1,4 +1,5 @@
 import numpy as np
+import scipy.spatial as sc
 
 
 class Point:
@@ -66,6 +67,23 @@ def intersect(p1, p2, p3, p4):
     else:
         return False
 
+def fun_list_calc_ordered_nodes_by_distance(nodes_list, x_array = None, y_array = None):
+    for i in nodes_list:
+    #     print(f'node {i}, id {i.node_id}, x {i.x_cord}, ordered by dist {i.ordered_nodes_by_distance}')
+        i.calc_ordered_nodes_by_distance(x_array,y_array)
+    # print('fun list nodes printing')
+    # for i in nodes_list:
+    #     print(f'node {i}, id {i.node_id}, x {i.x_cord}, ordered by dist {i.ordered_nodes_by_distance}')
+    return nodes_list
+
+def fun_list_calc_ordered_nodes_by_distance_2(node_class):
+    array_x_y = np.array((node_class.x_coords, node_class.y_coords)).T
+    distances = sc.distance.squareform(sc.distance.pdist(array_x_y))
+    node_class.ordered_nodes_by_distance_matrix = np.argsort(distances)
+    for i, node in enumerate(node_class.nodes_list):
+        node.distance_to_nodes = distances[i]
+        node.ordered_nodes_by_distance = node_class.ordered_nodes_by_distance_matrix[i]
+
 
 class Nodes:
     nodes_list = []
@@ -90,11 +108,16 @@ class Nodes:
     def distance(self, other_node):
         return np.linalg.norm([self.x_cord-other_node.x_cord ,self.y_cord-other_node.y_cord])
 
-    def calc_ordered_nodes_by_distance(self):
-        #print('calc ord x:', self.x_cord-Nodes.x_coords)
-        #print(print('calc ord y:', self.x_cord-Nodes.y_coords))
-        distances_x_y = np.append(self.x_cord-Nodes.x_coords, self.y_cord-Nodes.y_coords).reshape(2,-1)
-        #distances_x_y = np.array([[self.distance_x(i), self.distance_y(i)] for i in Nodes.nodes_list]).T.reshape(2, -1)
+    def calc_ordered_nodes_by_distance(self, x_array = None, y_array = None):
+        if x_array is None:
+            x_array = self.x_coords
+            y_array = self.y_coords
+        # print('calc ord x:', self.x_cord-Nodes.x_coords)
+        # print(print('calc ord y:', self.x_cord-Nodes.y_coords))
+        # print(f'class coords: {self.x_coords}')
+        # print(f'object coords: {self.x_cord}')
+        distances_x_y = np.append(self.x_cord-x_array, self.y_cord-y_array).reshape(2,-1)
+        # print(f'distances_x_y: {distances_x_y}')
         self.distance_to_nodes = np.linalg.norm(distances_x_y, axis=0)
         self.ordered_nodes_by_distance = np.argsort(self.distance_to_nodes)
 
