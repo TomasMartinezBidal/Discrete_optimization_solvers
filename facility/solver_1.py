@@ -16,23 +16,27 @@ Customer = namedtuple("Customer", ['index', 'demand', 'location'])
 def length(point1, point2):
     return math.sqrt((point1.x - point2.x) ** 2 + (point1.y - point2.y) ** 2)
 
-def plot_solution(facilities, customers, solution=[]):
 
-    fig, ax = plt.subplots(nrows=1,ncols=1)
-    ax.scatter(facilities.x, facilities.y)
-    ax.scatter(customers.x, customers.y)
-    for index, row in facilities.iterrows():
-        plt.annotate(f'f{index}', row.loc[['x','y']])
-    for index, row in customers.iterrows():
-        plt.annotate(f'c{index}', row.loc[['x','y']])
-    if len(solution) > 0:
-        for i in range(len(solution)):
-            customer_xy = customers.loc[[i],['x', 'y']].values
-            facility_xy = facilities.loc[[solution[i]], ['x', 'y']].values
-            coords = np.concatenate([customer_xy,facility_xy])
-            ax.plot(coords[:,0], coords[:,1])
-    plt.savefig('images\\new_fig.png', dpi=1000)
-    return None
+from plot_solution_file import plot_solution
+# def plot_solution(facilities, customers, solution=[]):
+#
+#     fig, ax = plt.subplots(nrows=1,ncols=1)
+#     ax.scatter(facilities.x, facilities.y)
+#     ax.scatter(customers.x, customers.y)
+#     for index, row in facilities.iterrows():
+#         plt.annotate(f'f{index}', row.loc[['x','y']])
+#     for index, row in customers.iterrows():
+#         plt.annotate(f'c{index}', row.loc[['x','y']])
+#     if len(solution) > 0:
+#         for i in range(len(solution)):
+#             customer_xy = customers.loc[[i],['x', 'y']].values
+#             facility_xy = facilities.loc[[solution[i]], ['x', 'y']].values
+#             coords = np.concatenate([customer_xy,facility_xy])
+#             ax.plot(coords[:,0], coords[:,1], c='g')
+#     name = file_location.split('\\')[1]
+#     fig.suptitle(f'{name}')
+#     plt.savefig(f'images\\new_fig.png', dpi=1000)
+#     return None
 
 
 
@@ -43,8 +47,8 @@ def solve_it(input_data):
     lines = input_data.split('\n')
 
     parts = lines[0].split()
-    facility_count = int(parts[0])
-    customer_count = int(parts[1])
+    facility_count = int(parts[0])  # number of facilities
+    customer_count = int(parts[1])  # number of customers
 
     facilities = pd.DataFrame(columns=['setup_cost', 'capacity', 'x', 'y'])
     for i in range(1, facility_count + 1):
@@ -107,7 +111,7 @@ def solve_it(input_data):
             obj += length(customers.loc[customer], facilities.loc[new_facility_opened])
 
     solution = solution.astype(int)
-    plot_solution(facilities, customers, solution)
+    plot_solution(facilities, customers, file_location, solution)
 
     # prepare the solution in the specified output format
     output_data = '%.2f' % obj + ' ' + str(0) + '\n'
