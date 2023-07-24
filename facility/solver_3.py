@@ -112,7 +112,7 @@ def solve_it(input_data):
 
     # mip_model.max_gap = 0.05
     print('start solving')
-    prob.solve(pulp.PULP_CBC_CMD(msg=1, timeLimit=60*10))
+    prob.solve(pulp.PULP_CBC_CMD(msg=1, timeLimit=60*90))
     # status = mip_model.optimize(max_seconds=600)
     status = pulp.LpStatus[prob.status]
     print(status)

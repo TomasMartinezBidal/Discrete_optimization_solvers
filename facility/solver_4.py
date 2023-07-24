@@ -14,6 +14,8 @@ import pulp
 import scipy.spatial as sc
 from plot_solution_file import plot_solution
 
+import auxiliaries as aux
+
 
 Point = namedtuple("Point", ['x', 'y'])  # Creo objetos namedtupple, son tuplas que se pueden acceder por nombre.
 Facility = namedtuple("Facility", ['index', 'setup_cost', 'capacity', 'location'])
@@ -35,72 +37,43 @@ def solve_it(input_data):
     customer_count = int(parts[1])  # number of customers
     print(customer_count)
 
-    # Genero df con mis facilities y mnis customers
-    facilities = pd.DataFrame(columns=['setup_cost', 'capacity', 'x', 'y'])
-    for i in range(1, facility_count + 1):
-        parts = lines[i].split()
-        facilities.loc[i - 1] = parts
-    facilities = facilities.astype({'setup_cost':float, 'capacity':int, 'x':float, 'y':float})
-    print('done facilities')
-    customers = pd.DataFrame(columns=['demand', 'x', 'y'])
-    for i in range(facility_count + 1, facility_count + 1 + customer_count):
-        parts = lines[i].split()
-        customers.loc[i - 1 - facility_count] = parts
-    customers = customers.astype({'demand':int, 'x':float, 'y':float})
-    print('done customers')
+    # Genero df con mis facilities y mis customers
+    facilities, customers = aux.make_facilities_customers_df(lines=lines, facility_count=facility_count, customer_count=customer_count)
 
-    array_x_y = pd.concat([facilities.loc[:,['x','y']], customers.loc[:,['x','y']]])
+    # Generate distance arrays
+    distances, distances_facilities, distances_customers, distances_facilities_customers, ordered_distances_facilities,\
+        ordered_distances_customers, ordered_rowfacility_distances_facilities_customers,\
+        ordered_rowcustomer_distances_facilities_customers = aux.calc_distances(facility_count=facility_count,
+                                                                                customer_count=customer_count,
+                                                                                facilities=facilities,
+                                                                                customers=customers)
 
-    distances = sc.distance.squareform(sc.distance.pdist(array_x_y))
-    distances_facilities = distances[0:facility_count, 0:facility_count]
-    distances_customers = distances[facility_count:, facility_count:]
-    distances_facilities_customers = distances[facility_count:, :facility_count]  # Customer in row, facility in column
+    # Generate decision variable dfs
+    f, x = aux.gen_decition_df(facility_count=facility_count, customer_count=customer_count, facilities=facilities)
+    # Might need correction
 
-    ordered_distances_facilities = np.argsort(distances_facilities, axis=0)
-    ordered_distances_customers = np.argsort(distances_customers, axis=0)
-    # ordered_rowfacility_distances_facilities_customers = np.argsort(distances_facilities_customers, axis=1)
-    ordered_rowcustomer_distances_facilities_customers = np.argsort(distances_facilities_customers, axis=1)
+    # Generate efficiency mask
+    # available_facilities, greedy_facility_maks = aux.efficiency_mask_generator(facility_count, facilities, customers, ordered_rowfacility_distances_facilities_customers, distances_facilities_customers)
 
-    x = pd.DataFrame(np.zeros((customer_count, facility_count), dtype='int'))  # df para las decition variables
+    greedy = False
+    if greedy:
+        greedy_facility_maks = pd.Series(np.ones(facility_count))
+        _, _, greedy_facility_maks = aux.greedy_solver(customer_count, facilities, customers,
+                      ordered_rowcustomer_distances_facilities_customers, x, f, greedy_facility_maks)
 
-    f = pd.DataFrame(np.zeros(facility_count, dtype='int'), columns=['facility_open'])
-    f = f.join(facilities.loc[:,'capacity'])
-    f.facility_open = 1
+        mask_open_facilities_pulp = greedy_facility_maks
+        mask_open_facilities = mask_open_facilities_pulp
 
-    for customer in range(customer_count):
-        open_facilities = f.facility_open
-        open_facilities_w_capacity_maks = (f.capacity > customers.loc[customer,'demand']) & open_facilities
-        open_facilities_w_capacity_dist_ordered = ordered_rowcustomer_distances_facilities_customers[customer][open_facilities_w_capacity_maks[ordered_rowcustomer_distances_facilities_customers[customer]]]
-        facility_to_be_asigned = open_facilities_w_capacity_dist_ordered[0]
-        f.loc[facility_to_be_asigned, 'capacity'] -= customers.loc[customer, 'demand']
-        x.loc[customer, facility_to_be_asigned] = 1
+        solution = list(x.values.argsort()[:, -1])
+        print(f'Greedy solution:\n{solution}')
+        plot_solution(facilities=facilities, customers=customers, solution=solution, extra='greedy')
+    else:
+        greedy_facility_maks = np.ones(shape=facility_count, dtype=bool)
+        mask_open_facilities_pulp = greedy_facility_maks
+        mask_open_facilities = mask_open_facilities_pulp
 
-    # Close all facilities that are not occupied.
-    mask_close_facilities = f.capacity == facilities.capacity
-    f.loc[mask_close_facilities, 'facility_open'] = 0
-
-    hue_array = (~mask_close_facilities).map({True:'Open', False:'Close'})
-    facility_mean_capacity = facilities.loc[:,'capacity'].mean()
-    facility_mean_setup_cost =  facilities.loc[:,'setup_cost'].mean()
-    if facility_count <= 100 & customer_count <= 1000:
-        facility_mean_capacity = 0
-        facility_mean_setup_cost = 0
-    extra_facilities_mask = (facilities.loc[:,'capacity'] >= facility_mean_capacity) & (facilities.loc[:,'setup_cost'] <= facility_mean_setup_cost)
-    extra_facilities_mask = extra_facilities_mask & mask_close_facilities
-    hue_array[extra_facilities_mask] = 'New_open'
-    # g = sns.jointplot(data=facilities, x='setup_cost', y='capacity', hue=hue_array)
-    # plt.show()
-
-    mask_open_facilities_pulp = ~mask_close_facilities | extra_facilities_mask
-
-    # decition_variables_array = np.array([ i if isinstance(i,np.int32) else i.varValue for i in x.values.flatten()])
-    # decition_variables_array = decition_variables_array.reshape((customer_count, facility_count))
-    solution = list(x.values.argsort()[:, -1])
-    print(f'Greedy solution:\n{solution}')
-    plot_solution(facilities=facilities, customers=customers, solution=solution, extra='greedy')
-
-    if customer_count >= 2000:
-        obj = facilities.loc[~mask_close_facilities, 'setup_cost'].sum() + distances_facilities_customers[x.astype(bool)].sum()
+    if customer_count >= 200000:
+        obj = facilities.loc[mask_open_facilities, 'setup_cost'].sum() + distances_facilities_customers[x.astype(bool)].sum()
 
         output_data = '%.2f' % obj + ' ' + str(0) + '\n'
         output_data += ' '.join(map(str, solution))
@@ -110,19 +83,33 @@ def solve_it(input_data):
 
     prob = pulp.LpProblem(name='facility_location',  sense=pulp.const.LpMinimize)
 
-    available_facilities = np.array(range(facility_count))[mask_open_facilities_pulp]
+    available_facilities = np.array(range(facility_count))[mask_open_facilities_pulp.astype(bool)]
 
+    # Transform customers integer greedy solution to pulp variables
+    total_facilities_available = len(available_facilities)
     for i in tqdm(range(customer_count)):
-        for j in available_facilities:
-            value = x.loc[i,j]
-            x.loc[i,j] = pulp.LpVariable(name=f'Customer:{i}_,Facility:{j}', cat='Binary') #  mip_model.add_var(var_type=mip.BINARY)
-            x.loc[i, j].setInitialValue(val=value)
+        # calculate the nearest facilities to i:
+        order_indexes = available_facilities[np.argsort(np.argsort(ordered_rowcustomer_distances_facilities_customers[i])[available_facilities])]
+        k1, k2 = 0.05, 50
+        number_facilities_available_i_customer = np.floor(total_facilities_available*k1).astype(int) if np.floor(total_facilities_available*k1).astype(int) > k2 else k2
+        facilities_available_i_customer = order_indexes[:number_facilities_available_i_customer]
+        for j in facilities_available_i_customer:
+        # for j in available_facilities:
+                value = x.loc[i,j]
+                x.loc[i,j] = pulp.LpVariable(name=f'Customer:{i}_,Facility:{j}', cat='Binary') #  mip_model.add_var(var_type=mip.BINARY)
+                x.loc[i, j].setInitialValue(val=value)
     print('done setting customers')
 
+    # Transform facility integer greedy solution to pulp variables
     f.loc[mask_open_facilities_pulp,'facility_open'] = np.array([pulp.LpVariable(name=f'Facility:{i}', cat='Binary') for i in available_facilities])
-    for i in f.loc[~mask_close_facilities,'facility_open']:
+    for i in f.loc[mask_open_facilities,'facility_open']:
         i.setInitialValue(val=1)
     print('done setting facilities')
+
+    facilities_ef_mask = greedy_facility_maks
+    mask_efficient_not_greedy = ~mask_open_facilities_pulp & facilities_ef_mask
+    efficient_not_greedy_facilities = pd.Series(range(facility_count))[mask_efficient_not_greedy].values
+    f.loc[mask_efficient_not_greedy, 'facility_open'] = np.array([pulp.LpVariable(name=f'Facility:{i}', cat='Binary') for i in efficient_not_greedy_facilities])
 
     for customer in tqdm(range(customer_count)):  # each customer is allocated to one facility only.
         prob += pulp.lpSum(x.loc[customer]) == 1
@@ -132,9 +119,21 @@ def solve_it(input_data):
         prob += pulp.lpSum(x.loc[:, facility] * customers.loc[:, 'demand']) <= facilities.loc[facility, 'capacity'] * f.loc[facility, 'facility_open']
     print('done facilities eq')
 
+    add_third_restriction = True
+
+    if add_third_restriction:
+        for customer in tqdm(range(customer_count)):
+            for facility in available_facilities:#range(facility_count):
+                prob += x.loc[customer, facility] <= f.loc[facility, 'facility_open']
+
+    add_forth_restriction = True
+    if add_forth_restriction:
+        for facility in tqdm(range(facility_count)):
+            prob += pulp.lpSum(x.loc[:, facility])/customer_count <= f.loc[facility, 'facility_open']
+
     prob += pulp.lpSum((distances_facilities_customers * x).values) + pulp.lpSum((facilities.loc[:,'setup_cost'] * f.loc[:, 'facility_open'].T).values)
 
-    prob.solve(pulp.PULP_CBC_CMD(msg=1, timeLimit=60*60, warmStart=True))#, warmStart=True)
+    prob.solve(pulp.PULP_CBC_CMD(msg=1, timeLimit=60*120, warmStart=False))#, threads=1))#, warmStart=True)
 
     status = pulp.LpStatus[prob.status]
     print(status)
@@ -143,7 +142,7 @@ def solve_it(input_data):
     decition_variables_array = decition_variables_array.reshape((customer_count, facility_count))
     solution = list(decition_variables_array.argsort()[:, -1])
 
-    plot_solution(facilities=facilities, customers=customers, solution=solution, extra='MIP')
+    # plot_solution(facilities=facilities, customers=customers, solution=solution, extra='MIP')
 
     obj = pulp.value(prob.objective)  # mip_model.objective_value
 
