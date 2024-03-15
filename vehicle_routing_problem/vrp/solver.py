@@ -3,6 +3,10 @@
 
 import math
 from collections import namedtuple
+#from test import test_function
+#test_function()
+
+from plotter import plot_solution
 
 Customer = namedtuple("Customer", ['index', 'demand', 'x', 'y'])
 
@@ -25,6 +29,7 @@ def solve_it(input_data):
         line = lines[i]
         parts = line.split()
         customers.append(Customer(i-1, int(parts[0]), float(parts[1]), float(parts[2])))
+
 
     #the depot is always the first customer in the input
     depot = customers[0] 
@@ -69,6 +74,8 @@ def solve_it(input_data):
     outputData = '%.2f' % obj + ' ' + str(0) + '\n'
     for v in range(0, vehicle_count):
         outputData += str(depot.index) + ' ' + ' '.join([str(customer.index) for customer in vehicle_tours[v]]) + ' ' + str(depot.index) + '\n'
+
+    plot_solution(customers=customers)
 
     return outputData
 
