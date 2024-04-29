@@ -46,7 +46,7 @@ def solve_it(input_data):
         # print "Start Vehicle: ",v
         vehicle_tours.append([])
         capacity_remaining = vehicle_capacity
-        while sum([capacity_remaining >= customer.demand for customer in remaining_customers]) > 0:
+        while sum([capacity_remaining >= customer.demand for customer in remaining_customers]) > 0:  # at least on customer can fit.
             used = set()
             order = sorted(remaining_customers, key=lambda customer: -customer.demand*customer_count + customer.index)
             for customer in order:
@@ -75,7 +75,7 @@ def solve_it(input_data):
     for v in range(0, vehicle_count):
         outputData += str(depot.index) + ' ' + ' '.join([str(customer.index) for customer in vehicle_tours[v]]) + ' ' + str(depot.index) + '\n'
 
-    plot_solution(customers=customers)
+    plot_solution(customers=customers, vehicle_tours=vehicle_tours, depot=depot)
 
     return outputData
 
