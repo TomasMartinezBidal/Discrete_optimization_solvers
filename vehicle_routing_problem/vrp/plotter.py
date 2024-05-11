@@ -1,9 +1,12 @@
+from typing import List
 import matplotlib.pyplot as plt
 #from solver import Customer
 from collections import namedtuple
-Customer = namedtuple("Customer", ['index', 'demand', 'x', 'y'])
+#Customer = namedtuple("Customer", ['index', 'demand', 'x', 'y'])
 
 import matplotlib.colors as mcolors
+
+from classes import Vehicle, Customer
 
 def generate_colors(n):
     cmap = plt.cm.get_cmap('hsv', n)
@@ -36,6 +39,35 @@ def plot_solution(customers:list[Customer], vehicle_tours: list[list[Customer]] 
             print(colours[i])
             x_values = [depot.x] + [customer.x for customer in vehicle_tour] + [depot.x]
             y_values = [depot.y] + [customer.y for customer in vehicle_tour] + [depot.y]
+            ax.plot(x_values, y_values, color=colours[i])
+
+    plt.show()
+    
+    return fig
+
+def plot_solution_from_objects(customers:List['Customer'], vehicles: List['Vehicle'] = None, depot: Customer = None):
+    # add colours for each route.
+    
+    used_vehicles = [vehicle for vehicle in vehicles if len(vehicle.route)>0]
+    #print(used_vehicles)
+    
+    colours = generate_colors(len(used_vehicles)+1)
+    
+    fig, ax = plt.subplots()
+
+    x_values = [customer.x for customer in customers]
+    #print(x_values)
+    y_values = [customer.y for customer in customers]
+    #print(y_values)
+
+    ax.scatter(x_values, y_values)
+    
+    #print([depot.x] + [customer.x for customer in vehicles[0].route])    
+    print(vehicles[0].route)
+    if used_vehicles:
+        for i, vehicle in enumerate(vehicles): #for vehicle_tour in vehicle_tours if len(vehicle_tour) > 0):
+            x_values = [depot.x] + [customer.x for customer in vehicle.route] + [depot.x]
+            y_values = [depot.y] + [customer.y for customer in vehicle.route] + [depot.y]
             ax.plot(x_values, y_values, color=colours[i])
 
     plt.show()
