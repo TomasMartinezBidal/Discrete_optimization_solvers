@@ -36,7 +36,7 @@ def plot_solution(customers:list[Customer], vehicle_tours: list[list[Customer]] 
     
     if vehicle_tours:
         for i, vehicle_tour in enumerate(vehicle_tour for vehicle_tour in vehicle_tours if len(vehicle_tour) > 0):
-            print(colours[i])
+            #print(colours[i])
             x_values = [depot.x] + [customer.x for customer in vehicle_tour] + [depot.x]
             y_values = [depot.y] + [customer.y for customer in vehicle_tour] + [depot.y]
             ax.plot(x_values, y_values, color=colours[i])
@@ -63,7 +63,7 @@ def plot_solution_from_objects(customers:List['Customer'], vehicles: List['Vehic
     ax.scatter(x_values, y_values)
     
     #print([depot.x] + [customer.x for customer in vehicles[0].route])    
-    print(vehicles[0].route)
+    #print(vehicles[0].route)
     if used_vehicles:
         for i, vehicle in enumerate(vehicles): #for vehicle_tour in vehicle_tours if len(vehicle_tour) > 0):
             x_values = [depot.x] + [customer.x for customer in vehicle.route] + [depot.x]

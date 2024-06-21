@@ -26,29 +26,44 @@ def solve_it(input_data):
     vehicle_count = int(parts[1])
     vehicle_capacity = int(parts[2])
     
+    print(f'customer_count: {customer_count}', f'vehicle_count: {vehicle_count}', f'vehicle_capacity: {vehicle_capacity}', sep="\n")
+    
     Customers = classes.Customer
     
-    line = lines[0]
-    parts = line.split()   
-    depot = Customers(x=float(parts[0]), y=float(parts[1]), depot=True)
+    line = lines[1]
+    parts = line.split()
+    depot = Customers(x=float(parts[1]), y=float(parts[2]), depot=True, customer_count=customer_count)
     for i in range(1, customer_count+1):
         line = lines[i]
         parts = line.split()
         Customers(i, int(parts[0]), float(parts[1]), float(parts[2]))
+    
     Customers.clac_distances()
+    Customers.generate_customer_list_by_demand()
     
     Vehicles = classes.Vehicle
     for i in range(vehicle_count):
-        Vehicles(i, vehicle_capacity)
+        Vehicles(i, vehicle_capacity, depot)
     
-    for customer in Customers.customer_list:
+    solution = classes.Solution(customer_count=customer_count, distance_array=Customers.distances)
+    
+    # Asing customers to vehicles
+    for customer in Customers.customer_list_by_demand:
         assigned = False
         available_vehicles = [vehicle for vehicle in Vehicles.vehicle_list if vehicle.remaining_capacity > customer.demand]
-        available_vehicles[np.random.randint(len(available_vehicles))].add_customer(customer)
+        vehicle_index_to_be_used = np.random.choice(available_vehicles).index#np.random.randint(len(available_vehicles))
+        # available_vehicles[vehicle_index_to_be_used].add_customer(customer)
+        solution.add(Vehicles.vehicle_list[vehicle_index_to_be_used], customer)
         
     plot_solution_from_objects(customers=Customers.customer_list, vehicles=Vehicles.vehicle_list, depot=depot)
     
-    return 1
+    # return None
+    # prepare the solution in the specified output format
+    outputData = '%.2f' % solution.calc_cost() + ' ' + str(0) + '\n'
+    for vehicle in Vehicles.vehicle_list:
+        outputData += str(0) + ' ' + ' '.join([str(customer.index) for customer in vehicle.route]) + ' ' + str(0) + '\n'
+
+    return outputData
 
 
     #the depot is always the first customer in the input
