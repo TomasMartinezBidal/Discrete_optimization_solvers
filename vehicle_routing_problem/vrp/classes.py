@@ -37,9 +37,9 @@ class Customer:
             customer.distance_to_customers = cls.distances[i]
             customer.ordered_customers_distance = cls.distances[i]
         
-        array_x_y_with_depot = np.array(([cls.depot.x]+cls.x_coords, [cls.depot.y]+cls.y_coords))        
+        array_x_y_with_depot = np.array((np.append(cls.x_coords,cls.depot.x), np.append(cls.y_coords,cls.depot.y))).T       
         cls.distances_with_depot = sc.distance.squareform(sc.distance.pdist(array_x_y_with_depot))
-
+        
     @classmethod
     def generate_customer_list_by_demand(cls):
         cls.customer_list_by_demand = sorted(cls.customer_list, key=lambda customer: customer.demand, reverse=True)
@@ -70,16 +70,20 @@ class Vehicle:
         
 class Solution:
     
-    def __init__(self, customer_count, distance_array) -> None:
+    def __init__(self, customer_count, distance_array, distance_array_with_depot) -> None:
         self.distance_array = distance_array
+        self.distance_array_with_depot = distance_array_with_depot
         self.coming_from_array = np.zeros(shape=(customer_count+1, customer_count+1))
         self.going_to_array = np.zeros(shape=(customer_count+1, customer_count+1))
         self.cost = 0
         pass
     
     def calc_cost(self):
-        print(self.distance_array, self.used_routes, sep="\n")
-        self.cost = np.sum(self.distance_array * self.used_routes)
+        # print(self.distance_array, self.used_routes, sep="\n")
+        routes_array = np.copy(self.going_to_array)
+        routes_array[:, -1] =+  self.coming_from_array[:, -1]
+        print(self.distance_array_with_depot.shape)
+        self.cost = np.sum(self.distance_array_with_depot * routes_array)
         return self.cost
         
     def add(self, vehicle: Vehicle, customer: Customer):

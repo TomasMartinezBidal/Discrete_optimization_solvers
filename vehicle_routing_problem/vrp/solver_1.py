@@ -45,7 +45,9 @@ def solve_it(input_data):
     for i in range(vehicle_count):
         Vehicles(i, vehicle_capacity, depot)
     
-    solution = classes.Solution(customer_count=customer_count, distance_array=Customers.distances)
+    solution = classes.Solution(customer_count=customer_count,
+                                distance_array=Customers.distances,
+                                distance_array_with_depot=Customers.distances_with_depot)
     
     # Asing customers to vehicles
     for customer in Customers.customer_list_by_demand:
