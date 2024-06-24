@@ -49,27 +49,26 @@ def plot_solution_from_objects(customers:List['Customer'], vehicles: List['Vehic
     # add colours for each route.
     
     used_vehicles = [vehicle for vehicle in vehicles if len(vehicle.route)>0]
-    #print(used_vehicles)
     
     colours = generate_colors(len(used_vehicles)+1)
     
     fig, ax = plt.subplots()
 
     x_values = [customer.x for customer in customers]
-    #print(x_values)
     y_values = [customer.y for customer in customers]
-    #print(y_values)
 
     ax.scatter(x_values, y_values)
     
-    #print([depot.x] + [customer.x for customer in vehicles[0].route])    
-    #print(vehicles[0].route)
+    for customer in customers:
+        ax.annotate(customer.index, (customer.x, customer.y), textcoords="offset points", xytext=(5,5), ha='right')
+    
     if used_vehicles:
         for i, vehicle in enumerate(vehicles): #for vehicle_tour in vehicle_tours if len(vehicle_tour) > 0):
             x_values = [depot.x] + [customer.x for customer in vehicle.route] + [depot.x]
             y_values = [depot.y] + [customer.y for customer in vehicle.route] + [depot.y]
             ax.plot(x_values, y_values, color=colours[i])
 
-    plt.show()
+    plt.savefig('../images/fig.png', dpi=100)
+    
     
     return fig

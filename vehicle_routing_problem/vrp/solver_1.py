@@ -30,17 +30,22 @@ def solve_it(input_data):
     
     Customers = classes.Customer
     
+    # create depot
     line = lines[1]
     parts = line.split()
-    depot = Customers(x=float(parts[1]), y=float(parts[2]), depot=True, customer_count=customer_count)
-    for i in range(1, customer_count+1):
-        line = lines[i]
+    depot = Customers(x=float(parts[1]), y=float(parts[2]), depot=True)
+    
+    #create customers
+    for i in range(1, customer_count):
+        line = lines[i+1]
         parts = line.split()
         Customers(i, int(parts[0]), float(parts[1]), float(parts[2]))
     
+    # get usefull matrix of customers
     Customers.clac_distances()
     Customers.generate_customer_list_by_demand()
     
+    # create vehicles
     Vehicles = classes.Vehicle
     for i in range(vehicle_count):
         Vehicles(i, vehicle_capacity, depot)
@@ -49,22 +54,22 @@ def solve_it(input_data):
                                 distance_array=Customers.distances,
                                 distance_array_with_depot=Customers.distances_with_depot)
     
-    # Asing customers to vehicles
+    # Asing customers to vehicles, it assings customers to the first vehicle with available capacity
+    # the vehicle cant be choosen randomly because in some cases customers may not fit.
+    # customers are also sorted by capacity to ensure the all fit.
     for customer in Customers.customer_list_by_demand:
-        assigned = False
-        available_vehicles = [vehicle for vehicle in Vehicles.vehicle_list if vehicle.remaining_capacity > customer.demand]
-        vehicle_index_to_be_used = np.random.choice(available_vehicles).index#np.random.randint(len(available_vehicles))
-        # available_vehicles[vehicle_index_to_be_used].add_customer(customer)
-        solution.add(Vehicles.vehicle_list[vehicle_index_to_be_used], customer)
-        
-    plot_solution_from_objects(customers=Customers.customer_list, vehicles=Vehicles.vehicle_list, depot=depot)
+        available_vehicles = [vehicle for vehicle in Vehicles.vehicle_list if vehicle.remaining_capacity >= customer.demand]
+        solution.add_to_vehicle(available_vehicles[0], customer)
     
-    # return None
+    print([vehicle.remaining_capacity for vehicle in Vehicles.vehicle_list])
+
     # prepare the solution in the specified output format
     outputData = '%.2f' % solution.calc_cost() + ' ' + str(0) + '\n'
     for vehicle in Vehicles.vehicle_list:
-        outputData += str(0) + ' ' + ' '.join([str(customer.index) for customer in vehicle.route]) + ' ' + str(0) + '\n'
+        outputData += ' '.join([str(customer.index) for customer in vehicle.route]) + ' ' + '\n'
 
+    plot_solution_from_objects(customers=Customers.customer_list, vehicles=Vehicles.vehicle_list, depot=depot)
+    
     return outputData
 
 
