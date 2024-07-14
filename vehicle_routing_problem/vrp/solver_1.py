@@ -46,9 +46,12 @@ def solve_it(input_data):
     Customers.generate_customer_list_by_demand()
     
     # create vehicles
-    Vehicles = classes.Vehicle
-    for i in range(vehicle_count):
-        Vehicles(i, vehicle_capacity, depot)
+    # Vehicles = classes.Vehicle
+    # for i in range(vehicle_count):
+    #     Vehicles(i, vehicle_capacity, depot)
+
+    first_fleet = classes.Vehicle_fleet([classes.Vehicle(i, vehicle_capacity, depot) for i in range(vehicle_count)])
+
     
     solution = classes.Solution(customer_count=customer_count,
                                 distance_array=Customers.distances,
@@ -58,18 +61,48 @@ def solve_it(input_data):
     # the vehicle cant be choosen randomly because in some cases customers may not fit.
     # customers are also sorted by capacity to ensure the all fit.
     for customer in Customers.customer_list_by_demand:
-        available_vehicles = [vehicle for vehicle in Vehicles.vehicle_list if vehicle.remaining_capacity >= customer.demand]
-        solution.add_to_vehicle(available_vehicles[0], customer)
+        available_vehicles = [vehicle for vehicle in first_fleet.vehicle_list if vehicle.remaining_capacity >= customer.demand]
+        solution.add_customer_to_vehicle(available_vehicles[0], customer)
     
-    print([vehicle.remaining_capacity for vehicle in Vehicles.vehicle_list])
+    # print('remaining capacities',[vehicle.remaining_capacity for vehicle in first_fleet.vehicle_list])
 
+    print('initial cost:',solution.calc_cost())
+    
     # prepare the solution in the specified output format
-    outputData = '%.2f' % solution.calc_cost() + ' ' + str(0) + '\n'
-    for vehicle in Vehicles.vehicle_list:
-        outputData += ' '.join([str(customer.index) for customer in vehicle.route]) + ' ' + '\n'
 
-    plot_solution_from_objects(customers=Customers.customer_list, vehicles=Vehicles.vehicle_list, depot=depot)
+    # print(solution.routes)
+    plot_solution_from_objects(customers=Customers.customer_list, vehicles=first_fleet.vehicle_list, depot=depot)
     
+    # solution_copy = solution.copy()
+    
+    # second_fleet = first_fleet.__deepcopy__()
+    
+    # capacity_threshold = 100
+    # cost_threshold = solution.cost + 100
+    indexes = [*range(len(first_fleet.vehicle_list))]
+
+    # cost reduction fase
+    # the solution comes far from optimised considering there is no cap on capacity threshold
+    for i in range(100000):
+        index_1, index_2 = np.random.choice(indexes, replace=True, size=2)#indexes[:2]
+        np.random.choice(first_fleet.vehicle_list)
+        if len(first_fleet.vehicle_list[index_1].route)>2:
+            solution.swap(first_fleet.vehicle_list[index_1],
+                          first_fleet.vehicle_list[index_2],
+                          np.random.choice(first_fleet.vehicle_list[index_1].route[1:-1]),
+                          cost_threshold=solution.cost,
+                          capacity_threshold=1000)
+    
+    # capacity excess reduction fase
+    plot_solution_from_objects(customers=Customers.customer_list, vehicles=first_fleet.vehicle_list, depot=depot)
+
+    # print(f'cost just before submition: {solution.cost}')
+    # print(f'cost just before submition: {solution.calc_cost()}')
+    
+    outputData = '%.2f' % solution.calc_cost() + ' ' + str(0) + '\n'
+    for vehicle in first_fleet.vehicle_list:
+        outputData += ' '.join([str(customer.index) for customer in vehicle.route]) + ' ' + '\n'
+    # print(f'output data: {outputData}')
     return outputData
 
 

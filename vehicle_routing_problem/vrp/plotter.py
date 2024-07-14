@@ -68,7 +68,8 @@ def plot_solution_from_objects(customers:List['Customer'], vehicles: List['Vehic
             y_values = [depot.y] + [customer.y for customer in vehicle.route] + [depot.y]
             ax.plot(x_values, y_values, color=colours[i])
 
-    plt.savefig('../images/fig.png', dpi=100)
+    plt.show()
+    #plt.savefig('../images/fig.png', dpi=20)
     
     
     return fig
