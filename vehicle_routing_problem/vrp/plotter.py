@@ -50,7 +50,7 @@ def plot_solution_from_objects(customers:List['Customer'], vehicles: List['Vehic
     
     used_vehicles = [vehicle for vehicle in vehicles if len(vehicle.route)>0]
     
-    colours = generate_colors(len(used_vehicles)+1)
+    colours = generate_colors(len(used_vehicles)+2)
     
     fig, ax = plt.subplots()
 

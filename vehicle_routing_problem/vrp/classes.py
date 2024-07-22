@@ -48,6 +48,24 @@ class Customer:
     def generate_customer_list_by_demand(cls):
         cls.customer_list_by_demand = sorted(cls.customer_list, key=lambda customer: customer.demand, reverse=True)
 
+class Customer_collection:
+    
+    def __init__(self, customer_list_w_depot: List[Customer] = None) -> None:
+        self.customer_list_w_depot = customer_list_w_depot
+        
+    def calc_distances(self):
+        y_coords = [customer.y for customer in self.customer_list_w_depot]
+        x_coords = [customer.x for customer in self.customer_list_w_depot]
+        array_x_y = np.array((x_coords, y_coords)).T
+        self.distances = sc.distance.squareform(sc.distance.pdist(array_x_y))
+        
+    def __deepcopy__(self, memo=None):
+        new_collection = Customer_collection()
+        new_collection.customer_list = [copy.deepcopy(customer, memo) for customer in self.customer_list]
+        return new_collection
+        
+    def __repr__(self):
+        return f"CustomerCollection(customer_list={self.customer_list})"
         
 class Vehicle:
     
@@ -111,12 +129,12 @@ class Vehicle_fleet():
     def __repr__(self):
         return f"VehicleFleet(vehicle_list={self.vehicle_list})"
     
-    def find_vehicle_by_index(self, index: int) -> Vehicle:
-        # Find a vehicle by its index
-        for vehicle in self.vehicle_list:
-            if vehicle.index == index:
-                return vehicle
-        raise ValueError(f"Vehicle with index {index} not found.")
+    # def find_vehicle_by_index(self, index: int) -> Vehicle:
+    #     # Find a vehicle by its index
+    #     for vehicle in self.vehicle_list:
+    #         if vehicle.index == index:
+    #             return vehicle
+    #     raise ValueError(f"Vehicle with index {index} not found.")
         
 class Solution:
     
@@ -126,13 +144,18 @@ class Solution:
         self.routes = np.zeros(shape=(customer_count, customer_count))
         self.cost = 0
         self.capacity_excess = 0
+        self.u_vars = [0 for _ in range(customer_count)]
         
-    def add_route(self, from_customer: Customer, to_customer: Customer, array_to_modift:np.ndarray=None):
+    def add_route(self, from_customer: Customer, to_customer: Customer, array_to_modify:np.ndarray=None):
         '''Adds conection in the solution routes matrix'''
-        if array_to_modift is None:
-            array_to_modift = self.routes
-        array_to_modift[from_customer.index, to_customer.index] = 1
-        return array_to_modift
+        if array_to_modify is None:
+            array_to_modify = self.routes
+        # print(array_to_modify)
+        # print(from_customer.index, to_customer.index)
+        array_to_modify[from_customer.index, to_customer.index] = 1
+        # print(array_to_modify)
+        # print('----------------------------------')
+        return array_to_modify
         
     def delete_route(self, from_customer: Customer, to_customer: Customer, array_to_modift:np.ndarray=None):
         '''Deletes conection in the solution routes matrix'''
@@ -149,6 +172,7 @@ class Solution:
         self.delete_route(previous_customer, next_customer)
         self.add_route(previous_customer, customer)
         self.add_route(customer, next_customer)
+        # print(f'final array of the add: \n{self.routes}')
         
             
     def calc_cost(self):
@@ -168,16 +192,24 @@ class Solution:
         # if insertion_index_second_route > len(vehicle_2.route):
         #     raise ValueError(f"index out of range for insertion {insertion_index_second_route}")
         #calculate cost if inserted
-        
+        # print([cus.index for cus in vehicle_1.route])
+        # print(customer.index)
+        # print(customer.demand)
         # setting customer and adjacent customers in route indexes
         new_routes_array = np.copy(self.routes)
         index_customer_vehicle_1 = vehicle_1.route.index(customer)
-        previous_customer = vehicle_1.route[index_customer_vehicle_1-1]
+        previous_customer = vehicle_1.route[index_customer_vehicle_1]
         next_customer = vehicle_1.route[index_customer_vehicle_1+1]
-        
+
         #check for insertion index
         if insertion_index_second_route is None:
-            insertion_index_second_route = np.random.randint(1, len(vehicle_2.route)-1)
+            try:
+                insertion_index_second_route = np.random.randint(1, len(vehicle_2.route))
+            except:
+                print([cust.index for cust in vehicle_2.route])
+                print(len(vehicle_2.route))
+                insertion_index_second_route = np.random.randint(1, len(vehicle_2.route))
+            
 
         # setting new adjacent customers in second vehicle
         new_previous_customer = vehicle_2.route[insertion_index_second_route-1]
@@ -191,23 +223,37 @@ class Solution:
         self.add_route(new_previous_customer, customer, new_routes_array)
         self.add_route(customer, new_next_customer, new_routes_array)
         
+        #can be optimized, full calculation is not required.
         #calculate new cost
         new_cost = np.sum(self.distance_array_with_depot * new_routes_array)
         
+        previos_vehicle_1_remaining_capacity = vehicle_1.remaining_capacity
+        previos_vehicle_2_remaining_capacity = vehicle_2.remaining_capacity
+        
+        previous_capacity_escess = self.capacity_excess
+        
+                
         new_vehicle_1_remaining_capacity = vehicle_1.remaining_capacity + customer.demand
         new_vehicle_2_remaining_capacity = vehicle_2.remaining_capacity - customer.demand
-        capacity_excess = - sum(min(cap,0) for cap in [new_vehicle_1_remaining_capacity, new_vehicle_2_remaining_capacity])
+        
+        new_capacity_excess = -((min(new_vehicle_1_remaining_capacity, 0) + min(new_vehicle_2_remaining_capacity, 0)) - (min(previos_vehicle_1_remaining_capacity, 0) + min(previos_vehicle_2_remaining_capacity, 0))) + previous_capacity_escess
+        # capacity_excess = - sum(min(cap,0) for cap in [new_vehicle_1_remaining_capacity, new_vehicle_2_remaining_capacity])
                     
         # print(f'new cost/cost_threshold: {round(new_cost)}/{round(cost_threshold)}, capacity_excess/capacity_threshold: {capacity_excess}/{capacity_threshold}, acutal cap excess: {self.capacity_excess}')
-        if cost_threshold > new_cost and capacity_threshold >= capacity_excess:
-            self.capacity_excess += capacity_excess# - sum(min(cap,0) for cap in [vehicle_1.remaining_capacity, vehicle_2.remaining_capacity])
+        if cost_threshold > new_cost and capacity_threshold >= new_capacity_excess:
+            print([[previos_vehicle_1_remaining_capacity,previos_vehicle_2_remaining_capacity],[new_vehicle_1_remaining_capacity,new_vehicle_2_remaining_capacity]])
+            print(f'customer demand: {customer.demand}')
+            self.capacity_excess = new_capacity_excess# - sum(min(cap,0) for cap in [vehicle_1.remaining_capacity, vehicle_2.remaining_capacity])
             self.cost=new_cost
             self.routes = new_routes_array
             vehicle_1.remove_customer(index_customer_vehicle_1)
             vehicle_2.add_customer_at_position(customer, insertion_index_second_route)
             # print(self.routes, new_routes_array, sep='\n')
             # print(self.cost, self.calc_cost())
-            # print(f'cost: {self.cost}')
+            print(f'vehicle 1 capacity remaining: {vehicle_1.remaining_capacity}')
+            print(f'vehicle 2 capacity remaining: {vehicle_2.remaining_capacity}')
+            print(f'cost: {self.cost}')
+            print(f'capacity excess: {self.capacity_excess}')
             return True
         return False
         

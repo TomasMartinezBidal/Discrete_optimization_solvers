@@ -3,14 +3,11 @@
 
 import math
 from collections import namedtuple
-#from test import test_function
-#test_function()
 import classes
 
 from plotter import plot_solution, plot_solution_from_objects
 import numpy as np
 
-#Customer = namedtuple("Customer", ['index', 'demand', 'x', 'y'])
 
 def length(customer1, customer2):
     return math.sqrt((customer1.x - customer2.x)**2 + (customer1.y - customer2.y)**2)
@@ -79,21 +76,45 @@ def solve_it(input_data):
     
     # capacity_threshold = 100
     # cost_threshold = solution.cost + 100
-    indexes = [*range(len(first_fleet.vehicle_list))]
-
-    # cost reduction fase
-    # the solution comes far from optimised considering there is no cap on capacity threshold
-    for i in range(100000):
-        index_1, index_2 = np.random.choice(indexes, replace=True, size=2)#indexes[:2]
-        np.random.choice(first_fleet.vehicle_list)
-        if len(first_fleet.vehicle_list[index_1].route)>2:
-            solution.swap(first_fleet.vehicle_list[index_1],
-                          first_fleet.vehicle_list[index_2],
-                          np.random.choice(first_fleet.vehicle_list[index_1].route[1:-1]),
-                          cost_threshold=solution.cost,
-                          capacity_threshold=1000)
     
-    # capacity excess reduction fase
+    for i in range(100):
+        indexes = np.random.choice([*range(len(first_fleet.vehicle_list))], 3)#[*range(3)]#[*range(len(first_fleet.vehicle_list))]
+
+        # cost reduction fase
+        # the solution comes far from optimised considering there is no cap on capacity threshold
+        for i in range(1000):
+            index_1, index_2 = np.random.choice(indexes, replace=False, size=2)#indexes[:2]
+            np.random.choice(first_fleet.vehicle_list)
+            if len(first_fleet.vehicle_list[index_1].route)>3:
+                solution.swap(first_fleet.vehicle_list[index_1],
+                            first_fleet.vehicle_list[index_2],
+                            np.random.choice(first_fleet.vehicle_list[index_1].route[1:-1]),
+                            cost_threshold=solution.cost,
+                            capacity_threshold=1000)
+        
+        # capacity excess reduction fase
+        print('reduction fase')
+        cost_limit = 0
+        while solution.capacity_excess > 0:
+            index_1, index_2 = np.random.choice(indexes, replace=False, size=2)#indexes[:2]
+            np.random.choice(first_fleet.vehicle_list)
+            # print(f'solution.cost: {solution.cost}')
+            # print(f'solution.capacity_excess: {solution.capacity_excess}')
+            # print(f'cost_threshold: {solution.cost + cost_limit}')
+            if len(first_fleet.vehicle_list[index_1].route)>2:
+                swapped_executed = solution.swap(first_fleet.vehicle_list[index_1],
+                            first_fleet.vehicle_list[index_2],
+                            np.random.choice(first_fleet.vehicle_list[index_1].route[1:-1]),
+                            cost_threshold=solution.cost + cost_limit,
+                            capacity_threshold=solution.capacity_excess)
+                if swapped_executed:
+                    cost_limit = 0
+                    print(f'cost: {solution.cost}')
+                    print(f'capacity excess: {solution.capacity_excess}')
+                else:
+                    cost_limit += 0.01
+    
+    
     plot_solution_from_objects(customers=Customers.customer_list, vehicles=first_fleet.vehicle_list, depot=depot)
 
     # print(f'cost just before submition: {solution.cost}')
