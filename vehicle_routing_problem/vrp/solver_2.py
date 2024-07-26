@@ -50,7 +50,7 @@ def solve_it(input_data):
     # Asing customers to vehicles, it assings customers to the first vehicle with available capacity
     # the vehicle cant be choosen randomly because in some cases customers may not fit.
     # customers are also sorted by capacity to ensure the all fit.
-    for customer in customer_collection.customer_list_w_depot[1:]:
+    for customer in sorted(customer_collection.customer_list_w_depot[1:], key=lambda x: x.demand, reverse=True):
         available_vehicles = [vehicle for vehicle in first_fleet.vehicle_list if vehicle.remaining_capacity >= customer.demand]
         solution.add_customer_to_vehicle(available_vehicles[0], customer)
     
@@ -61,84 +61,92 @@ def solve_it(input_data):
     # prepare the solution in the specified output format
 
     # print(solution.routes)
-    plot_solution_from_objects(customers=customer_collection.customer_list_w_depot, vehicles=first_fleet.vehicle_list, depot=depot)
+    # plot_solution_from_objects(customers=customer_collection.customer_list_w_depot, vehicles=first_fleet.vehicle_list, depot=depot)
     
     # make pulp solver.
     
     #Pending, select a set of vehicles
     
-    vehicle_subset: List[classes.Vehicle] = np.random.choice(first_fleet.vehicle_list,size=2, replace=False)
-    customers_subset = [customer for vehicle in vehicle_subset for customer in vehicle.route]
-    
-    
-    
-    prob = LpProblem("CVRP", const.LpMinimize)
-    
-    customer_indexes = list(range(1, customer_count))
-    customer_w_warehouse_indexes = list(range(customer_count))
-    customer_index_no_diag = [(i,j) for i in customer_w_warehouse_indexes for j in customer_w_warehouse_indexes if i != j]
-    # decition variables
-    pulp_routes_object = pulp.LpVariable.dicts("Used_routes", customer_index_no_diag, cat="Binary")
-    solution.u_vars = pulp.LpVariable.dicts("u vars", customer_indexes, cat="Intiger")
-    # for i in range(customer_count):
-    #     for j in range(customer_count):
-    #         if i != j:
-    #             solution.routes[i,j] = pulp.LpVariable(name=f'route({i,j})', cat='Binary')
-    
-    # for i in customer_indexes:
-    #     solution.u_vars[i] = pulp.LpVariable(name=f'u var {i}', cat='Intiger')
+    for i in range(200):
+        vehicle_subset: List[classes.Vehicle] = np.random.choice(first_fleet.vehicle_list,size=3, replace=False)
+        customers_subset = [customer for vehicle in vehicle_subset for customer in vehicle.route[1:-1]]
+        
+        prob = LpProblem("CVRP", const.LpMinimize)
+        
+        customer_indexes = [customer.index for customer in customers_subset]#list(range(1, customer_count))
+        customer_w_warehouse_indexes = [0]+customer_indexes#list(range(customer_count))
+        customer_index_no_diag = [(i,j) for i in customer_w_warehouse_indexes for j in customer_w_warehouse_indexes if i != j]
+        # decition variables
+        pulp_routes_object = pulp.LpVariable.dicts("Used_routes", customer_index_no_diag, cat="Binary")
+        solution.u_vars = pulp.LpVariable.dicts("u vars", customer_indexes, cat="Intiger")
+        # for i in range(customer_count):
+        #     for j in range(customer_count):
+        #         if i != j:
+        #             solution.routes[i,j] = pulp.LpVariable(name=f'route({i,j})', cat='Binary')
+        
+        # for i in customer_indexes:
+        #     solution.u_vars[i] = pulp.LpVariable(name=f'u var {i}', cat='Intiger')
 
-    # objective function
-    prob += pulp.lpSum([solution.distance_array_with_depot[i,j] * pulp_routes_object[i,j] for i, j in customer_index_no_diag])
-    
-    # restriction  
-    prob += pulp.lpSum([pulp_routes_object[0,j] for j in customer_indexes]) <= vehicle_count
-    prob += pulp.lpSum([pulp_routes_object[i,0] for i in customer_indexes]) <= vehicle_count
-    for i in customer_indexes:
-        prob += pulp.lpSum([pulp_routes_object[i,j] for j in customer_w_warehouse_indexes if j!= i]) == 1
-    for j in customer_indexes:
-        prob += pulp.lpSum([pulp_routes_object[i,j] for i in customer_w_warehouse_indexes if j!= i]) == 1
-    
-    M = 1000  # A sufficiently large number
-    for i,j in customer_index_no_diag:
-        if i != 0 and j != 0:
-            prob += solution.u_vars[i] + customer_collection.customer_list_w_depot[j].demand - solution.u_vars[j] <= M * (1 - pulp_routes_object[i, j])
-            prob += solution.u_vars[i] + customer_collection.customer_list_w_depot[j].demand - solution.u_vars[j] >= - M * (1 -pulp_routes_object[i, j])
-    
-    for i in customer_indexes:
-        prob += solution.u_vars[i] >= customer_collection.customer_list_w_depot[i].demand
-        prob += solution.u_vars[i] <= vehicle_capacity
+        # objective function
+        prob += pulp.lpSum([solution.distance_array_with_depot[i,j] * pulp_routes_object[i,j] for i, j in customer_index_no_diag])
         
-    prob.solve(pulp.PULP_CBC_CMD(msg=1, warmStart=True, timeLimit=180))
-    
-    print(f'cost pulp: {pulp.value(prob.objective)}')
-    for i,j in customer_index_no_diag:
-        solution.routes[i,j] = round(pulp.value(pulp_routes_object[i,j]))
-    
-    number_of_used_vehicles = np.sum(solution.routes[0], dtype=int)
-    customer_visited_from_depot = np.where(solution.routes[0])[0].tolist()
-    
-    #retore vehicles
-    for vehicle in first_fleet.vehicle_list:
-        vehicle.route = []
-    
-    for i in range(number_of_used_vehicles):
-        vehicle = first_fleet.vehicle_list[i]
-        first_customer_index = customer_visited_from_depot[i]
-        vehicle.route.append(customer_collection.customer_list_w_depot[0])
-        vehicle.route.append(customer_collection.customer_list_w_depot[first_customer_index])
-        last_added_customer_index = first_customer_index
-        while True:
-            next_customer_index = np.where(solution.routes[last_added_customer_index])[0].tolist()[0]
-            vehicle.route.append(customer_collection.customer_list_w_depot[next_customer_index])
-            last_added_customer_index = next_customer_index
-            if last_added_customer_index == 0:
-                break
-      
-    plot_solution_from_objects(customers=customer_collection.customer_list_w_depot, vehicles=first_fleet.vehicle_list, depot=depot)
+        # restriction  
+        prob += pulp.lpSum([pulp_routes_object[0,j] for j in customer_indexes]) <= len(vehicle_subset)
+        prob += pulp.lpSum([pulp_routes_object[i,0] for i in customer_indexes]) <= len(vehicle_subset)
+        for i in customer_indexes:
+            prob += pulp.lpSum([pulp_routes_object[i,j] for j in customer_w_warehouse_indexes if j!= i]) == 1
+        for j in customer_indexes:
+            prob += pulp.lpSum([pulp_routes_object[i,j] for i in customer_w_warehouse_indexes if j!= i]) == 1
+        
+        M = 1000  # A sufficiently large number
+        for i,j in customer_index_no_diag:
+            if i != 0 and j != 0:
+                prob += solution.u_vars[i] + customer_collection.customer_list_w_depot[j].demand - solution.u_vars[j] <= M * (1 - pulp_routes_object[i, j])
+                prob += solution.u_vars[i] + customer_collection.customer_list_w_depot[j].demand - solution.u_vars[j] >= - M * (1 -pulp_routes_object[i, j])
+        
+        for i in customer_indexes:
+            prob += solution.u_vars[i] >= customer_collection.customer_list_w_depot[i].demand
+            prob += solution.u_vars[i] <= vehicle_capacity
             
+        prob.solve(pulp.PULP_CBC_CMD(msg=0, warmStart=True, timeLimit=180))
         
-    
+        print(f'cost pulp: {pulp.value(prob.objective)}')
+        for i,j in customer_index_no_diag:
+            solution.routes[i,j] = round(pulp.value(pulp_routes_object[i,j]))
+            
+        # print(solution.routes)
+        
+        # code for when operating with limited vehicle count:
+        for vehicle in vehicle_subset:
+            vehicle.route = []
+            
+        customer_indexes_visited_from_depot = np.where(solution.routes[0])[0].tolist()
+        print("all customer after depot", customer_indexes_visited_from_depot)
+        customer_indexes_visited_by_other_vehicles = [vehicle.route[1].index for vehicle in first_fleet.vehicle_list if vehicle not in vehicle_subset]
+        print("all customer after depot other vehicles", customer_indexes_visited_by_other_vehicles)
+        customer_indexes_visited_from_depot = [i for i in customer_indexes_visited_from_depot if i not in customer_indexes_visited_by_other_vehicles]
+        print("customer after depot", customer_indexes_visited_from_depot)
+        number_of_used_vehicles = len(customer_indexes_visited_from_depot)
+        
+        # add a break if the vehicle is not needed, will generate an error as customer_indexes_visited_from_depot[i] wont exist
+        for i in range(number_of_used_vehicles):
+            vehicle = vehicle_subset[i]
+            first_customer_index = customer_indexes_visited_from_depot[i]
+            vehicle.route.append(customer_collection.customer_list_w_depot[0])
+            vehicle.route.append(customer_collection.customer_list_w_depot[first_customer_index])
+            last_added_customer_index = first_customer_index
+            while True:
+                next_customer_index = np.where(solution.routes[last_added_customer_index])[0].tolist()[0]
+                vehicle.route.append(customer_collection.customer_list_w_depot[next_customer_index])
+                last_added_customer_index = next_customer_index
+                if last_added_customer_index == 0:
+                    break  
+        # print(solution.routes)
+        for vehicle in first_fleet.vehicle_list:
+            print([i.index for i in vehicle.route])
+        # plot_solution_from_objects(customers=customer_collection.customer_list_w_depot, vehicles=first_fleet.vehicle_list, depot=depot)
+        
+    plot_solution_from_objects(customers=customer_collection.customer_list_w_depot, vehicles=first_fleet.vehicle_list, depot=depot)
     outputData = '%.2f' % solution.calc_cost() + ' ' + str(0) + '\n'
     for vehicle in first_fleet.vehicle_list:
         outputData += ' '.join([str(customer.index) for customer in vehicle.route]) + ' ' + '\n'
